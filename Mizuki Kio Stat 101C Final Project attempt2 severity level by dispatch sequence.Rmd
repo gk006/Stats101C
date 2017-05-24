@@ -1,0 +1,102 @@
+---
+title: "Stat 101C Final Project"
+author: "Mizuki Kio"
+date: "May 24, 2017"
+output: html_document
+---
+
+My attempt here is to develop the following prediction algorithm:
+
+1. For a given observation, search for other observations that have the same incident ID
+2. Find the maximum dispatch sequence in that incident and classify the incident into one of the 3 severity levels (like "small", "middle", or "big")
+3. Predit response using a linear model that is fit to a specific indicident level
+
+```{r}
+#load library
+library(dplyr)
+library(ggplot2)
+```
+
+#First Step: load data, take a sample of the incidents
+
+To save computational power, we will train the model only on a sample of incidents.
+
+```{r}
+setwd("D:/UCLA Document/2016-2017/Spring 2017/Stats 101C/Final Project")
+
+#load data
+library(readr)
+lafd <- read_csv("D:/UCLA Document/2016-2017/Spring 2017/Stats 101C/Final Project/lafdtraining.csv")
+testing <- read_csv("D:/UCLA Document/2016-2017/Spring 2017/Stats 101C/Final Project/testing.without.response.csv")
+
+#remove NA
+lafd = na.omit(lafd)
+
+#Randomly select 1000 incidents
+incidents_full = unique(lafd$incident.ID) #create a list of all unique incident IDs
+set.seed(123)
+incidents_sample = incidents_full[sample(1:length(incidents_full), size = 1000)] #randomly select 1000 of them
+
+lafd_sample = lafd[0,]
+
+#extract and store rows in original full data with Incident IDs that match our 1000 sample IDs
+for(i in 1:length(incidents_sample)){
+  lafd_sample = rbind(lafd_sample, filter(lafd, incident.ID == incidents_sample[i]) ) 
+}
+
+head(lafd_sample) #now we have a data frame with 1000 randomly-selected incidents only
+```
+
+#Analyze the incidents, look for patterns that we can use to classify incidents into a small number of categories
+
+Goal: Find a criteria that we can use to classify incidents into several categories (like 3~5) where incidents in each group are "similar" to each other.
+
+Let's try Max Dispatch Sequence first...
+
+```{r}
+incidents_sample_df = data.frame(incident.ID = incidents_sample)
+incidents_sample_df$maxDispatch = c()
+
+#Find the maximum dispatch sequence for each incident
+for(i in 1:nrow(incidents_sample_df)){
+  incidents_sample_df$maxDispatch[i] = lafd_sample[lafd_sample$incident.ID == incidents_sample[i], "Dispatch Sequence"] %>% max()
+}
+
+table(incidents_sample_df$maxDispatch)
+
+#based on the table, we decide to classify incidents into 3 severity levels as follows:
+
+incidents_sample_df$severity = rep(NA,nrow(incidents_sample_df))
+
+incidents_sample_df[incidents_sample_df$maxDispatch %in% c(1,2), "severity"] = 1
+incidents_sample_df[incidents_sample_df$maxDispatch %in% c(3,4), "severity"] = 2
+incidents_sample_df[incidents_sample_df$maxDispatch >= 5, "severity"] = 3
+
+table(incidents_sample_df$severity)
+```
+
+Now we incorporate our classification into the sample data frame.
+
+```{r}
+lafd_sample$severity = c()
+#extract rows in sample data with Incident IDs that match our 1000 sample IDs
+#assign to severity column values extracted from incidents_sample_df
+for(i in 1:length(incidents_sample)){
+  lafd_sample[lafd_sample$incident.ID == incidents_sample[i], "severity"] = incidents_sample_df[i, "severity"]
+}
+```
+
+#Analyze response variable, elapsed_time
+
+```{r}
+#Since the distribution of elapsed_time is heavily skewed, we take a log to make it normal
+lafd_sample$logelapse = log(lafd_sample$elapsed_time)
+plot(density(lafd_sample$logelapse)) #it's still far from normal but it's a lot better
+
+#Density of log_elapse by different severity levels:
+ggplot(data = lafd_sample, aes(x = logelapse, color = factor(severity), fill = factor(severity))) + geom_density(alpha=.5)
+```
+
+It seems that there is not much difference in the distribution of log_elapsed_time among incidents of different severity levels. Thus it may not be a good idea to fit seperate models to different severity models.
+
+We terminate this attempt as we did not find any meaningful difference in the distribution of response variable with respect to severity levels determined by the maxmimum dispatch sequence.
