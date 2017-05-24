@@ -1,0 +1,38 @@
+---
+title: "Stat 101C Final Project"
+author: "Mizuki Kio"
+date: "May 24, 2017"
+output: html_document
+---
+
+```{r}
+setwd("D:/UCLA Document/2016-2017/Spring 2017/Stats 101C/Final Project")
+
+#load data
+library(readr)
+lafd <- read_csv("D:/UCLA Document/2016-2017/Spring 2017/Stats 101C/Final Project/lafdtraining.csv")
+testing <- read_csv("D:/UCLA Document/2016-2017/Spring 2017/Stats 101C/Final Project/testing.without.response.csv")
+
+set.seed(123)
+lafd_sample = lafd[sample(1:nrow(lafd), size = 0.1 * nrow(lafd)),]
+lafd_sample = na.omit(lafd_sample)
+lafd_sample$logElapse = log(lafd_sample$elapsed_time)
+lafd_sample = lafd_sample[,-c(1,2,5,11)]
+
+attach(lafd_sample)
+```
+
+#simplest model
+
+```{r}
+model_simple = lm(logElapse~`Dispatch Status`, data = lafd_sample)
+summary(model_simple)
+
+pred = exp( predict(model_simple, newdata = testing) )
+
+myOutput = data.frame(row.id=testing$row.id, prediction = pred)
+
+write.csv(myOutput, file = "myOutput.csv", row.names = FALSE)
+
+
+```
