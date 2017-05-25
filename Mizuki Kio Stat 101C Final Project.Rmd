@@ -37,7 +37,7 @@ write.csv(myOutput, file = "myOutput.csv", row.names = FALSE)
 
 ```
 # MODEL 1: Ver 1.0
-I realized that Indident Creation Time is bimodial, maybe day and night helps?
+I realized that Incident Creation Time is bimodial, maybe day and night helps?
 Categorize night as after 18:00 and before 06:00
 ```{r m1}
 is_night <- function(x){
@@ -58,6 +58,7 @@ m1: add variable 'night' to indicate whether the incident happens at night or no
 Night is defined as after 18:00 pm and before 6:00 pm
 
 # MODEL 2: Ver 2.0
+Unit Type definitely affect elapsed time. E.g. Ambulances are able to arrive on spot quicker.
 ```{r m2}
 # Learn from the failure previously. Name low frequency unit type as "others"
 sort(table(lafd_sample$`Unit Type`),decreasing = TRUE)
