@@ -36,3 +36,60 @@ write.csv(myOutput, file = "myOutput.csv", row.names = FALSE)
 
 
 ```
+# MODEL 1: Ver 1.0
+I realized that Indident Creation Time is bimodial, maybe day and night helps?
+Categorize night as after 18:00 and before 06:00
+```{r m1}
+is_night <- function(x){
+  return (x>=18*3600 || x<=6*3600)
+}
+lafd_sample$night <- sapply(as.numeric(lafd_sample$`Incident Creation Time (GMT)`),is_night)
+testing$night <- sapply(as.numeric(testing$`Incident Creation Time (GMT)`),is_night)
+
+
+#hist(as.numeric(lafd_sample$`Incident Creation Time (GMT)`))
+m1 <- lm(logElapse~as.factor(`First in District`)+`Dispatch Status`+night,data=lafd_sample)
+summary(m1)
+a <- summary(m1)
+sum(a$residuals^2)
+```
+Summary:
+m1: add variable 'night' to indicate whether the incident happens at night or not. 
+Night is defined as after 18:00 pm and before 6:00 pm
+
+# MODEL 2: Ver 2.0
+```{r m2}
+# Learn from the failure previously. Name low frequency unit type as "others"
+sort(table(lafd_sample$`Unit Type`),decreasing = TRUE)
+# Assign Unit type = "Others" when occurence of that type <10
+infreq_type <- names(table(lafd_sample$`Unit Type`))[table(lafd_sample$`Unit Type`)<10]
+
+lafd_sample$type <- lafd_sample$`Unit Type`
+lafd_sample$type[lafd_sample$`Unit Type` %in% infreq_type] <-"Others"
+sort(table(lafd_sample$type),decreasing = TRUE)
+
+
+# modify the testing data as well, change the above infrequent types in training as well as types unique to testing data to "Others"
+unique_type <- setdiff(testing$`Unit Type`,lafd_sample$`Unit Type`)
+unique_type
+testing$type <- testing$`Unit Type`
+testing$type[testing$`Unit Type` %in% c(infreq_type,unique_type)] <-"Others"
+sort(table(testing$type),decreasing = TRUE)
+
+
+# Fit a model
+m2 <- lm(logElapse~as.factor(`First in District`)+`Dispatch Status`+night+type,data=lafd_sample)
+summary(m2)
+a <- summary(m2)
+sum(a$residuals^2)
+
+# prediction
+pred <- exp(predict(m2, newdata = testing))
+
+myOutput_m2 = data.frame(row.id=testing$row.id, prediction = pred)
+
+write.csv(myOutput_m2, file = "myOutput_m2.csv", row.names = FALSE)
+```
+Summary:
+m2: add variable night, Unit Type (changed infrequent types as 'others').
+Kaggle score: 1788863.93525
